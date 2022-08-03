@@ -612,7 +612,14 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * the thread actually starts running tasks, we initialize lock
      * state to a negative value, and clear it upon start (in
      * runWorker).
+     * Class Worker 主要维护线程运行任务的中断控制状态，以及其他次要的记录
+     * 此类机会主义地扩展 AbstractQueuedSynchronizer 以简化获取和释放围绕每个任务执行的锁。
+     * 这可以防止旨在唤醒等待任务的工作线程而不是中断正在运行的任务的中断。
+     * 我们实现了一个简单的不可重入互斥锁而不是使用 ReentrantLock，因为我们不希望工作任务在调用 setCorePoolSize 等池控制方法时能够重新获取锁。
+     * 此外，为了在线程真正开始运行任务之前抑制中断，我们将锁定状态初始化为负值，并在启动时将其清除（在 runWorker 中）。
      */
+
+
     private final class Worker
         extends AbstractQueuedSynchronizer
         implements Runnable
@@ -624,10 +631,15 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
         private static final long serialVersionUID = 6138294804551838833L;
 
         /** Thread this worker is running in.  Null if factory fails. */
+        // 该Worker正在工作的线程
         final Thread thread;
         /** Initial task to run.  Possibly null. */
+
+        // 将要运行的初始任务
         Runnable firstTask;
         /** Per-thread task counter */
+
+        // 任务计数器
         volatile long completedTasks;
 
         /**
@@ -642,6 +654,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
 
         /** Delegates main run loop to outer runWorker  */
         public void run() {
+            // 实际执行runWorker方法
             runWorker(this);
         }
 
@@ -654,6 +667,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
             return getState() != 0;
         }
 
+        // AQS 的方法
         protected boolean tryAcquire(int unused) {
             if (compareAndSetState(0, 1)) {
                 setExclusiveOwnerThread(Thread.currentThread());
@@ -1200,23 +1214,32 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * @param w the worker
      */
     final void runWorker(Worker w) {
+        // 当前线程， ？？ 是哪个线程呢？
         Thread wt = Thread.currentThread();
         Runnable task = w.firstTask;
         w.firstTask = null;
+        // 允许中断
         w.unlock(); // allow interrupts
         boolean completedAbruptly = true;
         try {
+            // 如果当前任务不为空，则直接执行；否则调用getTask()从任务队列中取出一个任务执行
             while (task != null || (task = getTask()) != null) {
                 w.lock();
+                // 加锁
+
                 // If pool is stopping, ensure thread is interrupted;
                 // if not, ensure thread is not interrupted.  This
                 // requires a recheck in second case to deal with
                 // shutdownNow race while clearing interrupt
+                // 如果池正在停止，请确保线程被中断；如果没有，请确保线程不被中断。
+                // 这需要在第二种情况下重新检查以在清除中断时处理 shutdownNow 竞争
                 if ((runStateAtLeast(ctl.get(), STOP) ||
                      (Thread.interrupted() &&
                       runStateAtLeast(ctl.get(), STOP))) &&
                     !wt.isInterrupted())
                     wt.interrupt();
+
+                // (staus >= stop || ()) && wt唯有中断
                 try {
                     beforeExecute(wt, task);
                     Throwable thrown = null;
