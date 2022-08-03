@@ -296,6 +296,7 @@ public abstract class AbstractQueuedSynchronizer
      * Creates a new {@code AbstractQueuedSynchronizer} instance
      * with initial synchronization state of zero.
      */
+    // 保护无参构造方法
     protected AbstractQueuedSynchronizer() { }
 
     /**
@@ -377,13 +378,21 @@ public abstract class AbstractQueuedSynchronizer
      * expert group, for helpful ideas, discussions, and critiques
      * on the design of this class.
      */
+
+    /*
+      内部类，将线程封装成node类型
+     */
     static final class Node {
         /** Marker to indicate a node is waiting in shared mode */
+        // 共享标记
         static final Node SHARED = new Node();
         /** Marker to indicate a node is waiting in exclusive mode */
+        // 独占标记
         static final Node EXCLUSIVE = null;
 
         /** waitStatus value to indicate thread has cancelled */
+
+        // 5 种状态，0 是初始状态， 1 是取消， -1 唤醒下一个节点 -2 condition队列标记  -3 指示下一个acquireShared应无条件传播
         static final int CANCELLED =  1;
         /** waitStatus value to indicate successor's thread needs unparking */
         static final int SIGNAL    = -1;
@@ -463,6 +472,7 @@ public abstract class AbstractQueuedSynchronizer
          * The thread that enqueued this node.  Initialized on
          * construction and nulled out after use.
          */
+        // node 所包含的线程
         volatile Thread thread;
 
         /**
@@ -561,6 +571,8 @@ public abstract class AbstractQueuedSynchronizer
      * @return {@code true} if successful. False return indicates that the actual
      *         value was not equal to the expected value.
      */
+
+    // Unsafe包CAS操作 设置state
     protected final boolean compareAndSetState(int expect, int update) {
         // See below for intrinsics setup to support this
         return unsafe.compareAndSwapInt(this, stateOffset, expect, update);
@@ -580,6 +592,7 @@ public abstract class AbstractQueuedSynchronizer
      * @param node the node to insert
      * @return node's predecessor
      */
+    // 将节点插入sync队列， 如果tail为空的话进行初始化， 延迟初始化
     private Node enq(final Node node) {
         for (;;) {
             Node t = tail;
@@ -602,11 +615,14 @@ public abstract class AbstractQueuedSynchronizer
      * @param mode Node.EXCLUSIVE for exclusive, Node.SHARED for shared
      * @return the new node
      */
+    // 将当前线程包装成Node
     private Node addWaiter(Node mode) {
         Node node = new Node(Thread.currentThread(), mode);
         // Try the fast path of enq; backup to full enq on failure
+        // pred 旧的尾结点， 讲node 设置为尾结点
         Node pred = tail;
         if (pred != null) {
+            // 分为三步， 中间交换保证线程安全， 造成尾分叉现象
             node.prev = pred;
             if (compareAndSetTail(pred, node)) {
                 pred.next = node;
@@ -1072,6 +1088,8 @@ public abstract class AbstractQueuedSynchronizer
      *         correctly.
      * @throws UnsupportedOperationException if exclusive mode is not supported
      */
+
+    // 需要子类实现
     protected boolean tryAcquire(int arg) {
         throw new UnsupportedOperationException();
     }
@@ -1193,6 +1211,11 @@ public abstract class AbstractQueuedSynchronizer
      * @param arg the acquire argument.  This value is conveyed to
      *        {@link #tryAcquire} but is otherwise uninterpreted and
      *        can represent anything you like.
+     */
+
+    /**
+     * 独占模式获取锁
+     * @param arg
      */
     public final void acquire(int arg) {
         if (!tryAcquire(arg) &&

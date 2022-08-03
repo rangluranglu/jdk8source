@@ -618,7 +618,11 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * 我们实现了一个简单的不可重入互斥锁而不是使用 ReentrantLock，因为我们不希望工作任务在调用 setCorePoolSize 等池控制方法时能够重新获取锁。
      * 此外，为了在线程真正开始运行任务之前抑制中断，我们将锁定状态初始化为负值，并在启动时将其清除（在 runWorker 中）。
      */
-
+    /**
+     * 通过继承AQS，实现独占锁的功能。有使用可重入锁ReentrantLock，而是使用AQS，为的就是实现不可重入的特性去反应线程现在的执行状态。
+     * Worker具有不可重入特性，目的是为了防止worker刚好在运行途中，线程池控制类操作（比如setCorePoolSize)时获得锁
+     * ，这样的话，因为重入性，setCorePoolSize会执行中断操作，会把正在运行的任务中断掉。
+     */
 
     private final class Worker
         extends AbstractQueuedSynchronizer
@@ -1132,14 +1136,21 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * @return task, or null if the worker must exit, in which case
      *         workerCount is decremented
      */
+
+    // 线程池状态为SHUTDOWN且任务队列为空
+    // 线程池状态为STOP、TIDYING、TERMINATED 线程池线程数大于最大线程数 线程可以被超时回收的情况下等待新任务超时
     private Runnable getTask() {
+        // 通过timeOut变量表示线程是否空闲时间超时了
         boolean timedOut = false; // Did the last poll() time out?
 
+        // 自旋
         for (;;) {
             int c = ctl.get();
             int rs = runStateOf(c);
 
             // Check if queue empty only if necessary.
+            // 如果线程池状态>=SHUTDOWN并且工作队列为空 或 线程池状态>=STOP，则返回null，
+            // 让当前worker被销毁
             if (rs >= SHUTDOWN && (rs >= STOP || workQueue.isEmpty())) {
                 decrementWorkerCount();
                 return null;
@@ -1148,8 +1159,14 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
             int wc = workerCountOf(c);
 
             // Are workers subject to culling?
+
+            // 当前线程是否允许超时销毁的标志
+            // 允许超时销毁：当线程池允许核心线程超时 或 工作线程数>核心线程数
             boolean timed = allowCoreThreadTimeOut || wc > corePoolSize;
 
+            // 如果(当前线程数大于最大线程数 或 (允许超时销毁 且 当前发生了空闲时间超时))
+            // 且(当前线程数大于1 或 阻塞队列为空)
+            // 则减少worker计数并返回null
             if ((wc > maximumPoolSize || (timed && timedOut))
                 && (wc > 1 || workQueue.isEmpty())) {
                 if (compareAndDecrementWorkerCount(c))
@@ -1158,11 +1175,14 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
             }
 
             try {
+                // 根据线程是否允许超时判断用poll还是take（会阻塞）方法从任务队列头部取出一个任务
                 Runnable r = timed ?
                     workQueue.poll(keepAliveTime, TimeUnit.NANOSECONDS) :
                     workQueue.take();
                 if (r != null)
                     return r;
+
+                // 走到这说明发生过超时
                 timedOut = true;
             } catch (InterruptedException retry) {
                 timedOut = false;
@@ -1214,11 +1234,12 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * @param w the worker
      */
     final void runWorker(Worker w) {
-        // 当前线程， ？？ 是哪个线程呢？
+        // 当前线程， ？？ 是哪个线程呢？ 可能是工作线程
         Thread wt = Thread.currentThread();
+        // 取出要要执行的任务
         Runnable task = w.firstTask;
         w.firstTask = null;
-        // 允许中断
+        // 允许中断 初始化是state 是 -1 ， unlock（）state 变为0
         w.unlock(); // allow interrupts
         boolean completedAbruptly = true;
         try {
@@ -1233,14 +1254,16 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                 // shutdownNow race while clearing interrupt
                 // 如果池正在停止，请确保线程被中断；如果没有，请确保线程不被中断。
                 // 这需要在第二种情况下重新检查以在清除中断时处理 shutdownNow 竞争
+
+                // 如果状态值大于等于STOP且当前线程还没有被中断，则主动中断线程
                 if ((runStateAtLeast(ctl.get(), STOP) ||
                      (Thread.interrupted() &&
                       runStateAtLeast(ctl.get(), STOP))) &&
                     !wt.isInterrupted())
                     wt.interrupt();
 
-                // (staus >= stop || ()) && wt唯有中断
                 try {
+                    // 任务执行前的回调，空实现，可以在子类中实现
                     beforeExecute(wt, task);
                     Throwable thrown = null;
                     try {
@@ -1252,16 +1275,21 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                     } catch (Throwable x) {
                         thrown = x; throw new Error(x);
                     } finally {
+                        // 任务执行后的回调，空实现，可以在子类中自定义
                         afterExecute(task, thrown);
                     }
                 } finally {
+                    // 将循环变量设置为null，表示已经处理结束
                     task = null;
+                    // 已完成任务数 +1
                     w.completedTasks++;
+                    // 解锁
                     w.unlock();
                 }
             }
             completedAbruptly = false;
         } finally {
+            // 处理worker线程退出， 销毁worker线程
             processWorkerExit(w, completedAbruptly);
         }
     }
