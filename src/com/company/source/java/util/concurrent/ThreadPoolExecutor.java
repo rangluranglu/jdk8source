@@ -927,8 +927,13 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * drainTo. But if the queue is a DelayQueue or any other kind of
      * queue for which poll or drainTo may fail to remove some
      * elements, it deletes them one by one.
+     *
+     * 将任务队列排空到一个新列表中，通常使用 drainTo。
+     * 但是，如果队列是 DelayQueue 或任何其他类型的队列，
+     * 其 poll 或 drainTo 可能无法删除某些元素，它会一一删除它们。
      */
     private List<Runnable> drainQueue() {
+        // 阻塞队列
         BlockingQueue<Runnable> q = workQueue;
         ArrayList<Runnable> taskList = new ArrayList<Runnable>();
         q.drainTo(taskList);
@@ -1649,7 +1654,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
             // 设置中断标志
             interruptWorkers();
 
-
+            // 清楚阻塞队列里的任务
             tasks = drainQueue();
         } finally {
             mainLock.unlock();

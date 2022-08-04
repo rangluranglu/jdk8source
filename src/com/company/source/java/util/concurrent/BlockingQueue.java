@@ -335,6 +335,10 @@ public interface BlockingQueue<E> extends Queue<E> {
      * {@code IllegalArgumentException}. Further, the behavior of
      * this operation is undefined if the specified collection is
      * modified while the operation is in progress.
+     * 从此队列中删除所有可用元素并将它们添加到给定集合中。此操作可能比重复轮询此队列更有效。
+     * 尝试将元素添加到集合 {@code c} 时遇到的失败可能会导致在引发相关异常时元素既不在集合中，又不属于任何一个集合或两个集合。
+     * 尝试将队列排空到自身会导致 {@code IllegalArgumentException}。
+     * 此外，如果在操作正在进行时修改了指定的集合，则此操作的行为是未定义的。
      *
      * @param c the collection to transfer elements into
      * @return the number of elements transferred
