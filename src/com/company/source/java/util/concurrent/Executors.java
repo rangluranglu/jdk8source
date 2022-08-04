@@ -608,6 +608,7 @@ public class Executors {
                          "-thread-";
         }
 
+        // 默认线程工厂 产生新的线程
         public Thread newThread(Runnable r) {
             Thread t = new Thread(group, r,
                                   namePrefix + threadNumber.getAndIncrement(),

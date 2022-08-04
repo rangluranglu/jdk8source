@@ -50,6 +50,10 @@ import sun.security.util.SecurityConstants;
  * it is being attempted in a security context that allows the
  * operation to be performed. The
  * application can allow or disallow the operation.
+ * 安全管理器是一个允许应用程序实现安全策略的类。
+ * 它允许应用程序在执行可能不安全或敏感的操作之前确定该操作是什么以及是否在允许执行该操作的安全上下文中尝试该操作。
+ * 应用程序可以允许或禁止该操作。
+ *
  * <p>
  * The <code>SecurityManager</code> class contains many methods with
  * names that begin with the word <code>check</code>. These methods
