@@ -52,6 +52,11 @@ import java.util.Spliterator;
  * element that has been on the queue the shortest time. New elements
  * are inserted at the tail of the queue, and the queue retrieval
  * operations obtain elements at the head of the queue.
+ * 由数组支持的有界 {@linkplain BlockingQueue 阻塞队列}。
+ * 此队列对元素进行 FIFO（先进先出）排序。
+ * 队列的 <em>head<em> 是在队列中停留时间最长的元素。
+ * 队列的 <em>tail<em> 是队列中时间最短的元素。新元素被插入到队列的尾部，队列检索操作获取队列头部的元素。
+ *
  *
  * <p>This is a classic &quot;bounded buffer&quot;, in which a
  * fixed-sized array holds elements inserted by producers and
@@ -93,17 +98,21 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
     /** The queued items */
     final Object[] items;
 
+    // 取出的指针
     /** items index for next take, poll, peek or remove */
     int takeIndex;
 
+    // 放入的指针
     /** items index for next put, offer, or add */
     int putIndex;
 
+    // 元素的数量
     /** Number of elements in the queue */
     int count;
 
     /*
      * Concurrency control uses the classic two-condition algorithm
+     * // two-condition算法来进行并发控制
      * found in any textbook.
      */
 
@@ -121,6 +130,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * are known not to be any.  Allows queue operations to update
      * iterator state.
      */
+    // 当前活动迭代器的共享状态，如果已知不存在则为 null。允许队列操作更新迭代器状态。
     transient Itrs itrs = null;
 
     // Internal helper methods
@@ -153,6 +163,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
     /**
      * Inserts element at current put position, advances, and signals.
      * Call only when holding lock.
+     * 在当前放置位置插入元素，前进和信号。仅在持有锁时调用。
      */
     private void enqueue(E x) {
         // assert lock.getHoldCount() == 1;
@@ -162,6 +173,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         if (++putIndex == items.length)
             putIndex = 0;
         count++;
+        // 放入队列，通知notsignall
         notEmpty.signal();
     }
 
@@ -169,6 +181,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * Extracts element at current take position, advances, and signals.
      * Call only when holding lock.
      */
+    // 元素出队
     private E dequeue() {
         // assert lock.getHoldCount() == 1;
         // assert items[takeIndex] != null;
@@ -235,6 +248,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * @param capacity the capacity of this queue
      * @throws IllegalArgumentException if {@code capacity < 1}
      */
+    // 指定初始容量的队列
     public ArrayBlockingQueue(int capacity) {
         this(capacity, false);
     }
@@ -249,6 +263,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      *        if {@code false} the access order is unspecified.
      * @throws IllegalArgumentException if {@code capacity < 1}
      */
+    // 是否公平，公平队列即所有等待的消费者或者是生产者按照顺序来访问这个队列，为false就表示不保证这种排序
     public ArrayBlockingQueue(int capacity, boolean fair) {
         if (capacity <= 0)
             throw new IllegalArgumentException();
@@ -274,11 +289,14 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * @throws NullPointerException if the specified collection or any
      *         of its elements are null
      */
+
+    // 指定一个随机的
     public ArrayBlockingQueue(int capacity, boolean fair,
                               Collection<? extends E> c) {
         this(capacity, fair);
 
         final ReentrantLock lock = this.lock;
+        // 锁定仅用于可见性，而不是互斥
         lock.lock(); // Lock only for visibility, not mutual exclusion
         try {
             int i = 0;
@@ -318,17 +336,23 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * returning {@code true} upon success and {@code false} if this queue
      * is full.  This method is generally preferable to method {@link #add},
      * which can fail to insert an element only by throwing an exception.
+     * 如果可以在不超出队列容量的情况下立即插入指定元素，则在此队列的尾部插入指定元素，成功时返回 {@code true}，
+     * 如果此队列已满则返回 false。
+     * 此方法通常比方法 add 更可取，后者仅通过抛出异常可能无法插入元素。
      *
      * @throws NullPointerException if the specified element is null
      */
     public boolean offer(E e) {
+        // 非空检查
         checkNotNull(e);
         final ReentrantLock lock = this.lock;
         lock.lock();
         try {
+            // 容量已满
             if (count == items.length)
                 return false;
             else {
+                // 放入元素
                 enqueue(e);
                 return true;
             }
@@ -344,6 +368,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * @throws InterruptedException {@inheritDoc}
      * @throws NullPointerException {@inheritDoc}
      */
+    // 阻塞
     public void put(E e) throws InterruptedException {
         checkNotNull(e);
         final ReentrantLock lock = this.lock;
@@ -371,13 +396,16 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         checkNotNull(e);
         long nanos = unit.toNanos(timeout);
         final ReentrantLock lock = this.lock;
+        // 不忽略阻塞
         lock.lockInterruptibly();
         try {
             while (count == items.length) {
                 if (nanos <= 0)
                     return false;
+                // 带有超时的等待方法， 等待在notFull 条件上
                 nanos = notFull.awaitNanos(nanos);
             }
+
             enqueue(e);
             return true;
         } finally {
@@ -395,6 +423,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         }
     }
 
+    // 阻塞方法
     public E take() throws InterruptedException {
         final ReentrantLock lock = this.lock;
         lock.lockInterruptibly();
