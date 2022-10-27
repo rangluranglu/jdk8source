@@ -261,6 +261,7 @@ class Thread implements Runnable {
      *
      * @return  the currently executing thread.
      */
+    // 当前正在执行这段代码的线程
     public static native Thread currentThread();
 
     /**
@@ -279,6 +280,11 @@ class Thread implements Runnable {
      * concurrency control constructs such as the ones in the
      * {@link java.util.concurrent.locks} package.
      */
+    // 向调度程序提示当前线程愿意放弃当前对处理器的使用。调度程序可以随意忽略此提示
+    // yield 是一种启发式尝试，旨在改善线程之间的相对进展，否则会过度使用CPU
+    // 很少使用这种方法。 它对于调试或测试目的可能很有用，它可能有助于重现由于竞争条件导致的错误。
+    // yield() 方法不会使线程退出RUNNABLE 状态，顶多会使线程从RUNNING 变成 READY
+    // 但是 sleep()方法 是有可能将线程转换成TIMED_WAITING的
     public static native void yield();
 
     /**
@@ -298,6 +304,7 @@ class Thread implements Runnable {
      *          <i>interrupted status</i> of the current thread is
      *          cleared when this exception is thrown.
      */
+    // sleep() 让出cpu 但是仍然持有监视器锁
     public static native void sleep(long millis) throws InterruptedException;
 
     /**
@@ -322,6 +329,8 @@ class Thread implements Runnable {
      *          <i>interrupted status</i> of the current thread is
      *          cleared when this exception is thrown.
      */
+    // 增加了延时参数
+    // 多出来的参数最多是让当前毫秒级别的延时增加1毫秒.
     public static void sleep(long millis, int nanos)
     throws InterruptedException {
         if (millis < 0) {
@@ -344,6 +353,13 @@ class Thread implements Runnable {
      * Initializes a Thread with the current AccessControlContext.
      * @see #init(ThreadGroup,Runnable,String,long,AccessControlContext,boolean)
      */
+    // 用当前的AccessControlContext初始化一个线程。
+    // 线程组
+    // runnable 对象
+    // 线程名字
+    // 为线程分配的栈大小
+    // 线程Thread类本身实现了Runnable接口，覆写了run方法
+    // 传入的Runnable对象也覆写了run方法。有两个run方法，不要搞混淆
     private void init(ThreadGroup g, Runnable target, String name,
                       long stackSize) {
         init(g, target, name, stackSize, null, true);
@@ -362,6 +378,7 @@ class Thread implements Runnable {
      * @param inheritThreadLocals if {@code true}, inherit initial values for
      *            inheritable thread-locals from the constructing thread
      */
+    //
     private void init(ThreadGroup g, Runnable target, String name,
                       long stackSize, AccessControlContext acc,
                       boolean inheritThreadLocals) {
@@ -444,6 +461,7 @@ class Thread implements Runnable {
      * name. Automatically generated names are of the form
      * {@code "Thread-"+}<i>n</i>, where <i>n</i> is an integer.
      */
+    // 构造函数
     public Thread() {
         init(null, null, "Thread-" + nextThreadNum(), 0);
     }
@@ -696,6 +714,7 @@ class Thread implements Runnable {
      * @see        #run()
      * @see        #stop()
      */
+    // 启动线程
     public synchronized void start() {
         /**
          * This method is not invoked for the main method thread or "system"
@@ -704,16 +723,21 @@ class Thread implements Runnable {
          *
          * A zero status value corresponds to state "NEW".
          */
+        // 初始状态必须是0
         if (threadStatus != 0)
             throw new IllegalThreadStateException();
 
         /* Notify the group that this thread is about to be started
          * so that it can be added to the group's list of threads
          * and the group's unstarted count can be decremented. */
+        // 添加线程组
         group.add(this);
 
         boolean started = false;
         try {
+            // 调用native start0()方法,启动线程，执行run()方法。
+            // 由于它内部使用了native方法来启动线程，它将导致一个新的线程被创建出来, 而我们的Thread实例,
+            // 就代表了这个新创建出来的线程, 并且由这个新创建出来的线程来执行Thread实例的run方法。
             start0();
             started = true;
         } finally {
@@ -742,6 +766,7 @@ class Thread implements Runnable {
      * @see     #stop()
      * @see     #Thread(ThreadGroup, Runnable, String)
      */
+    // 调用target对象的run方法
     @Override
     public void run() {
         if (target != null) {
@@ -911,10 +936,16 @@ class Thread implements Runnable {
      * @revised 6.0
      * @spec JSR-51
      */
+    // 中断这个线程，this thread 指的是该方法所属的线程所代表的的线程
+    // 一个线程总是被允许中断自己，但是想要在一个线程中中断另一个线程的执行，要检查权限，可能会抛出异常
+    // 如果线程因为以下方法处于阻塞中，那么调用interrupt方法后，线程的中断标志会被清除并抛出一个InterruptedException
+    // wait() join() sleep()
+    // 如果线程没有因为上面的函数调用而进入阻塞状态的话，那么中断这个线程仅仅会设置它的中断标志位(而不会抛出InterruptedException)
+    // 中断一个已经终止的线程不会有任何影响。
     public void interrupt() {
         if (this != Thread.currentThread())
             checkAccess();
-
+        // 和NIO 有关
         synchronized (blockerLock) {
             Interruptible b = blocker;
             if (b != null) {
@@ -943,6 +974,8 @@ class Thread implements Runnable {
      * @see #isInterrupted()
      * @revised 6.0
      */
+    // 会清除标志位
+    // 是静态方法，是清除中断状态的唯一方法
     public static boolean interrupted() {
         return currentThread().isInterrupted(true);
     }
@@ -960,6 +993,8 @@ class Thread implements Runnable {
      * @see     #interrupted()
      * @revised 6.0
      */
+    // 不会reset中断标志位、
+    // 返回实例的中断状态
     public boolean isInterrupted() {
         return isInterrupted(false);
     }
@@ -969,6 +1004,7 @@ class Thread implements Runnable {
      * is reset or not based on the value of ClearInterrupted that is
      * passed.
      */
+    // 获取中断标志位
     private native boolean isInterrupted(boolean ClearInterrupted);
 
     /**
@@ -1222,7 +1258,7 @@ class Thread implements Runnable {
      * die. A timeout of {@code 0} means to wait forever.
      *
      * <p> This implementation uses a loop of {@code this.wait} calls
-     * conditioned on {@code this.isAlive}. As a thread terminates the
+     * conditioned on {@code this.isAlive}. /重要As a thread terminates the
      * {@code this.notifyAll} method is invoked. It is recommended that
      * applications not use {@code wait}, {@code notify}, or
      * {@code notifyAll} on {@code Thread} instances.
@@ -1238,6 +1274,29 @@ class Thread implements Runnable {
      *          <i>interrupted status</i> of the current thread is
      *          cleared when this exception is thrown.
      */
+    // join方法是另一个能将线程状态转换成WAITING或者TIMED_WAITING的
+    // 该方法等待`this thread`终止，最多等指定的时间，如果指定时间为0，则一直等。
+    // 有synchronized 拿到了监视器锁
+
+    /**
+     * 示例
+     * @param millis
+     * @throws InterruptedException
+     * main(){
+     *     myThread.join();
+     * }
+     *
+     * // main() 线程执行myThread的join()方法，需要拿到myThread的监视器锁
+     * 先检查myThread线程是否存活
+     * 如果存活的话，main() 线程无限期等待，并让出监视器锁，进入WAITING 状态
+     * 当main线程从WAITING状态被唤醒后，将继续竞争监视器锁，当成功获得监视器锁后，他将从调用wait的地方恢复，继续运行。
+     * 可以看出，退出这个“自旋”状态的唯一途径就是myThread线程终止运行（或者有中断异常抛出）。
+     *
+     * 由于main() 线程持有myThread() 对象锁，当myThread() 终止时，this.notifyAll会被调用，所以
+     * 等待this锁上的线程都会被唤醒，因此main线程会被唤醒
+     *
+     * join(0) 是很危险的，如果myThread的不到资源一直被挂起，main现在又在等待myThread线程终止，则程序永远不会终止
+     */
     public final synchronized void join(long millis)
     throws InterruptedException {
         long base = System.currentTimeMillis();
@@ -1249,6 +1308,7 @@ class Thread implements Runnable {
 
         if (millis == 0) {
             while (isAlive()) {
+                // 是myThread对象的方法，但是执行这个对象的是main线程，他使得main线程挂起
                 wait(0);
             }
         } else {
@@ -1739,9 +1799,11 @@ class Thread implements Runnable {
      * @since   1.5
      * @see #getState
      */
+    // 线程状态
     public enum State {
         /**
          * Thread state for a thread which has not yet started.
+         * 尚未启动的线程状态
          */
         NEW,
 
@@ -1750,6 +1812,9 @@ class Thread implements Runnable {
          * state is executing in the Java virtual machine but it may
          * be waiting for other resources from the operating system
          * such as processor.
+         *
+         * 可运行的线程状态 。处于runnable状态的线程正在虚拟机中执行，但是可能等待其他计算机资源
+         * 包括running 和 ready 状态
          */
         RUNNABLE,
 
@@ -1759,6 +1824,7 @@ class Thread implements Runnable {
          * to enter a synchronized block/method or
          * reenter a synchronized block/method after calling
          * {@link Object#wait() Object.wait}.
+         * 等待monitor锁
          */
         BLOCKED,
 
@@ -1780,6 +1846,8 @@ class Thread implements Runnable {
          * <tt>Object.notify()</tt> or <tt>Object.notifyAll()</tt> on
          * that object. A thread that has called <tt>Thread.join()</tt>
          * is waiting for a specified thread to terminate.
+         *
+         * 处于等待状态的线程正在等待另一个线程执行特定动作
          */
         WAITING,
 

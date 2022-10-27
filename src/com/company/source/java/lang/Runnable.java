@@ -52,6 +52,7 @@ package java.lang;
  * @see     java.util.concurrent.Callable
  * @since   JDK1.0
  */
+// 函数式接口，1.8之后。意味着可以使用Lambda表达式来创建Runnable接口的实例
 @FunctionalInterface
 public interface Runnable {
     /**

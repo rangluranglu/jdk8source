@@ -995,6 +995,12 @@ public final class Unsafe {
      * because <tt>unpark</tt> is, so it would be strange to place it
      * elsewhere.
      */
+    /**
+     * 阻塞线程，并且该线程在下列情况发生之前都会被阻塞：
+     * 1. 调用unpark函数，释放该线程的许可
+     * 2. 该线程被中断
+     * 3. 设置的时间到了，并且，当time为绝对时间时，isAbsolute为true，否则，isAbsolute为false。当time为0时，表示无限等待，直到unpark发生。
+     */
     public native void park(boolean isAbsolute, long time);
 
     /**

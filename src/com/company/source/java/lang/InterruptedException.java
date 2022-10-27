@@ -46,6 +46,10 @@ package java.lang;
  * @see     java.lang.Thread#interrupted()
  * @since   JDK1.0
  */
+
+// 在现场waiting， sleeping，甚至是正在运行的过程中，如果被中断了，就可以抛出该异常。
+// sleep 和 wait 都会抛出该异常，会抛出该异常但是并不会终止当前线程的执行，当前线程可以选择忽略这个异常
+
 public
 class InterruptedException extends Exception {
     private static final long serialVersionUID = 6700697376100628473L;
