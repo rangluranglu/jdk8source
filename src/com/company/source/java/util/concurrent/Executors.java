@@ -417,6 +417,7 @@ public class Executors {
     public static Callable<Object> callable(Runnable task) {
         if (task == null)
             throw new NullPointerException();
+        // 使用适配器模式
         return new RunnableAdapter<Object>(task, null);
     }
 
