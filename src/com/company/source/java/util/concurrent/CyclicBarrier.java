@@ -147,7 +147,21 @@ public class CyclicBarrier {
      * and all the rest are either broken or tripped.
      * There need not be an active generation if there has been a break
      * but no subsequent reset.
+     * 屏障的每次使用都表示为一个生成实例。每当栅栏被触发或重置时，生成就会发生变化。
+     * 可能有许多代与使用屏障的线程相关联 - 由于锁定可能分配给等待线程的不确定方式 -
+     * 但一次只能激活其中一个（{@code count} 适用的那个)，其余的要么坏了要么跳闸了。
+     * 如果有中断但没有后续重置，则不需要活动生成。
+     *
      */
+
+    // 在CountDownLatch中，执行countDown的线程不会被挂起，调用await方法的线程会阻塞等待共享锁。
+    // 而在CyclicBarrier中，将count值递减的线程和执行await方法的线程是一类线程，它们在执行完递减count的操作后，如果count值不为0，则可能同时被挂起。
+    // countDownLatch 依赖AQS ，cyclicBarrier 依赖reentrantLock
+
+    // countDownLatch 使用共享锁，count值不为0时，线程在sync queue中等待，自始至终只牵涉到sync queue，由于使用共享锁，唤醒操作不必等待锁释放后再进行，唤醒操作很迅速。
+    // CyclicBarrier使用的是独占锁，count值不为0时，线程进入condition queue中等待，当count值降为0后，将被signalAll()方法唤醒到sync queue中去，
+    // 然后挨个去争锁（因为是独占锁），在前驱节点释放锁以后，才能继续唤醒后继节点。
+
     private static class Generation {
         boolean broken = false;
     }

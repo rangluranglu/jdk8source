@@ -84,8 +84,10 @@ import java.util.Spliterator;
  * @author Doug Lea
  * @param <E> the type of elements held in this collection
  */
+// 有界缓冲区
 public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         implements BlockingQueue<E>, java.io.Serializable {
+
 
     /**
      * Serialization ID. This class relies on default serialization
@@ -98,6 +100,8 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
     /** The queued items */
     final Object[] items;
 
+    // 使用双指针环形数组，普通数组，删除数组元素时需要进行位移操作，导致它的时间复杂度为O(n)
+    // 采用双指针环形数组，不需要进行位移，只需要分别移动两个指针
     // 取出的指针
     /** items index for next take, poll, peek or remove */
     int takeIndex;
@@ -116,13 +120,18 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * found in any textbook.
      */
 
+    // two-condition 算法 双条件算法
+
+
     /** Main lock guarding all access */
     final ReentrantLock lock;
 
     /** Condition for waiting takes */
+    // 非空等待条件
     private final Condition notEmpty;
 
     /** Condition for waiting puts */
+    // 非满等待条件
     private final Condition notFull;
 
     /**
@@ -170,6 +179,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         // assert items[putIndex] == null;
         final Object[] items = this.items;
         items[putIndex] = x;
+        // 如果添加一个元素队列满了之后，会被putIndex置为0,典型的环形数组的实现
         if (++putIndex == items.length)
             putIndex = 0;
         count++;
@@ -370,10 +380,13 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      */
     // 阻塞
     public void put(E e) throws InterruptedException {
+        // 检查插入元素非空
         checkNotNull(e);
+        // 加锁保证线程安全
         final ReentrantLock lock = this.lock;
         lock.lockInterruptibly();
         try {
+            // 队列已满，等待
             while (count == items.length)
                 notFull.await();
             enqueue(e);

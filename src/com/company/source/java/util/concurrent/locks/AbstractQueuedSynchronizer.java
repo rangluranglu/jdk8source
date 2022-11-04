@@ -1099,6 +1099,7 @@ public abstract class AbstractQueuedSynchronizer
      */
     private void doAcquireSharedInterruptibly(int arg)
         throws InterruptedException {
+        // 将当前线程封装成Node, 丢到sync queue 中去阻塞等待
         final Node node = addWaiter(Node.SHARED);
         boolean failed = true;
         try {

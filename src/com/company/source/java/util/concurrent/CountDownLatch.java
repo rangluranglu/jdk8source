@@ -158,6 +158,7 @@ public class CountDownLatch {
      * Synchronization control For CountDownLatch.
      * Uses AQS state to represent count.
      */
+    // Sync
     private static final class Sync extends AbstractQueuedSynchronizer {
         private static final long serialVersionUID = 4982264981922014374L;
 
@@ -169,12 +170,15 @@ public class CountDownLatch {
             return getState();
         }
 
+        // 共享锁
         protected int tryAcquireShared(int acquires) {
             return (getState() == 0) ? 1 : -1;
         }
 
+        // 共享锁释放
         protected boolean tryReleaseShared(int releases) {
             // Decrement count; signal when transition to zero
+            // 自旋 减1
             for (;;) {
                 int c = getState();
                 if (c == 0)
@@ -195,6 +199,7 @@ public class CountDownLatch {
      *        before threads can pass through {@link #await}
      * @throws IllegalArgumentException if {@code count} is negative
      */
+    // 初始化一个count
     public CountDownLatch(int count) {
         if (count < 0) throw new IllegalArgumentException("count < 0");
         this.sync = new Sync(count);
@@ -287,8 +292,10 @@ public class CountDownLatch {
      *
      * <p>If the current count equals zero then nothing happens.
      */
+    // 计数器减1
     public void countDown() {
         sync.releaseShared(1);
+
     }
 
     /**

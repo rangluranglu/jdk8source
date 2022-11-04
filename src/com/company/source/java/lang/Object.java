@@ -242,6 +242,10 @@ public class Object {
      * is chosen to be awakened. The choice is arbitrary and occurs at
      * the discretion of the implementation. A thread waits on an object's
      * monitor by calling one of the {@code wait} methods.
+     * 唤醒正在此对象的监视器上等待的单个线程。如果有任何线程正在等待该对象，则选择其中一个被唤醒。
+     * 该选择是任意的，并由实施自行决定。线程通过调用 {@code wait} 方法之一在对象的监视器上等待。
+     *（这里解释下, 因为调用notify方法时, 线程还在同步代码块里面, 只有离开了同步代码块, 锁才会被释放）
+     *
      * <p>
      * The awakened thread will not be able to proceed until the current
      * thread relinquishes the lock on this object. The awakened thread will
@@ -249,6 +253,10 @@ public class Object {
      * actively competing to synchronize on this object; for example, the
      * awakened thread enjoys no reliable privilege or disadvantage in being
      * the next thread to lock this object.
+     * 在当前线程放弃对该对象的锁定之前，被唤醒的线程将无法继续。
+     * 被唤醒的线程将以通常的方式与可能正在积极竞争以在此对象上同步的任何其他线程竞争；
+     * 例如，被唤醒的线程在成为下一个锁定该对象的线程时不享有可靠的特权或劣势。
+     *
      * <p>
      * This method should only be called by a thread that is the owner
      * of this object's monitor. A thread becomes the owner of the
@@ -299,6 +307,9 @@ public class Object {
      * {@link java.lang.Object#notify()} method or the
      * {@link java.lang.Object#notifyAll()} method for this object, or a
      * specified amount of time has elapsed.
+     * 使当前线程挂起，直到另一个线程为此对象调用 {@link java.lang.Object#notify()}
+     * 方法或 {@link java.lang.Object#notifyAll()} 方法，或者经过了指定的时间.
+     *
      * <p>
      * The current thread must own this object's monitor.
      * <p>
@@ -307,17 +318,29 @@ public class Object {
      * any and all synchronization claims on this object. Thread <var>T</var>
      * becomes disabled for thread scheduling purposes and lies dormant
      * until one of four things happens:
+     * 此方法使当前线程（称为 <var>T<var>）将自己置于该对象的等待队列中，然后放弃对该对象的所有同步声明。
+     * 线程 <var>T<var> 出于线程调度目的而被禁用并处于休眠状态，直到发生以下四种情况之一：
+     *
      * <ul>
      * <li>Some other thread invokes the {@code notify} method for this
      * object and thread <var>T</var> happens to be arbitrarily chosen as
      * the thread to be awakened.
+     * <li>某个其他线程为此对象调用了{@code notify} 方法，而线程<var>T<var> 恰好被任意选择为要被唤醒的线程。
+     *
      * <li>Some other thread invokes the {@code notifyAll} method for this
      * object.
+     * <li>其他一些线程为此对象调用 {@code notifyAll} 方法。
+     *
      * <li>Some other thread {@linkplain Thread#interrupt() interrupts}
      * thread <var>T</var>.
+     * <li>其他一些线程{@linkplain Thread#interrupt() 中断} 线程<var>T<var>。
+     *
      * <li>The specified amount of real time has elapsed, more or less.  If
      * {@code timeout} is zero, however, then real time is not taken into
      * consideration and the thread simply waits until notified.
+     * <li>或多或少已经过了指定的实时时间。但是，如果 {@code timeout} 为零，
+     * 则不考虑实时时间，线程只是等待直到收到通知。
+     *
      * </ul>
      * The thread <var>T</var> is then removed from the wait set for this
      * object and re-enabled for thread scheduling. It then competes in the
@@ -330,6 +353,12 @@ public class Object {
      * {@code wait} method, the synchronization state of the object and of
      * thread {@code T} is exactly as it was when the {@code wait} method
      * was invoked.
+     * 线程 <var>T<var> 然后从该对象的wait set 中移除并重新启用线程调度。
+     * 然后它以通常的方式与其他线程竞争对象同步的权利；一旦它获得了对象的控制权，
+     * 它对对象的所有同步声明都会恢复到之前的状态——即，恢复到调用 {@code wait} 方法时的状态。 恢复现场
+     * 线程 <var>T<var> 然后从 {@code wait} 方法的调用返回。
+     * 因此，从 {@code wait} 方法返回时，对象和线程 {@code T} 的同步状态与调用 {@code wait} 方法时完全相同。
+     *
      * <p>
      * A thread can also wake up without being notified, interrupted, or
      * timing out, a so-called <i>spurious wakeup</i>.  While this will rarely
@@ -348,12 +377,20 @@ public class Object {
      * "Concurrent Programming in Java (Second Edition)" (Addison-Wesley,
      * 2000), or Item 50 in Joshua Bloch's "Effective Java Programming
      * Language Guide" (Addison-Wesley, 2001).
+     * 线程也可以在没有被通知、中断或超时的情况下唤醒，即所谓的<i>spurious wakeup<i>。
+     * 虽然这在实践中很少发生，但应用程序必须通过测试应该导致线程被唤醒的条件来防范它，如果条件不满足则继续等待。
+     * 换句话说，等待应该总是发生在循环中，就像这样：
+     *（有关此主题的更多信息，请参阅 Doug Lea 的“Java 中的并发编程（第二版）”（Addison-Wesley，2000）中的第 3.2.3 节，或第 50 节Joshua Bloch 的“有效的 Java 编程语言指南”（Addison-Wesley，2001 年）。
+     * 所以要使用while 循环。
+     *
      *
      * <p>If the current thread is {@linkplain java.lang.Thread#interrupt()
      * interrupted} by any thread before or while it is waiting, then an
      * {@code InterruptedException} is thrown.  This exception is not
      * thrown until the lock status of this object has been restored as
      * described above.
+     * <p>如果当前线程在等待之前或期间被任何线程{@linkplain java.lang.Thread#interrupt() 中断}，
+     * 则抛出{@code InterruptedException}。在此对象的锁定状态已按上述恢复之前，不会引发此异常。
      *
      * <p>
      * Note that the {@code wait} method, as it places the current thread
@@ -379,6 +416,8 @@ public class Object {
      * @see        java.lang.Object#notify()
      * @see        java.lang.Object#notifyAll()
      */
+
+    // 本地方法
     public final native void wait(long timeout) throws InterruptedException;
 
     /**
@@ -453,6 +492,7 @@ public class Object {
                                 "nanosecond timeout value out of range");
         }
 
+        // nanos 大于0 但低于999999， 即低于1毫秒， 就直接按1毫秒算
         if (nanos > 0) {
             timeout++;
         }
@@ -473,9 +513,16 @@ public class Object {
      * either through a call to the {@code notify} method or the
      * {@code notifyAll} method. The thread then waits until it can
      * re-obtain ownership of the monitor and resumes execution.
+     * 当前线程必须拥有该对象的监视器。线程释放此监视器的所有权并等待，
+     * 直到另一个线程通过调用 {@code notify} 方法或 {@code notifyAll}
+     * 方法通知在此对象的监视器上等待的线程唤醒。
+     * 然后线程等待直到它可以重新获得监视器的所有权并恢复执行。
+     *
      * <p>
      * As in the one argument version, interrupts and spurious wakeups are
      * possible, and this method should always be used in a loop:
+     * 与单参数版本一样，中断和虚假唤醒是可能的，并且应该始终在循环中使用此方法：
+     *
      * <pre>
      *     synchronized (obj) {
      *         while (&lt;condition does not hold&gt;)
@@ -487,6 +534,8 @@ public class Object {
      * of this object's monitor. See the {@code notify} method for a
      * description of the ways in which a thread can become the owner of
      * a monitor.
+     * 此方法只能由作为该对象监视器所有者的线程调用。
+     * 请参阅 {@code notify} 方法以了解线程可以成为监视器所有者的方式的描述。
      *
      * @throws  IllegalMonitorStateException  if the current thread is not
      *               the owner of the object's monitor.
@@ -507,6 +556,9 @@ public class Object {
      * determines that there are no more references to the object.
      * A subclass overrides the {@code finalize} method to dispose of
      * system resources or to perform other cleanup.
+     * 当垃圾收集确定不再有对该对象的引用时，由对象上的垃圾收集器调用。
+     * 子类覆盖 {@code finalize} 方法来处理系统资源或执行其他清理。
+     *
      * <p>
      * The general contract of {@code finalize} is that it is invoked
      * if and when the Java&trade; virtual
